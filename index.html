@@ -1,0 +1,1637 @@
+<title>চিহ্ন টাইপিং</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+Da+2:wght@600;800&family=Hind+Siliguri:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<style>
+/* লেআউট: বাঁয়ে বড় কোড-এডিটর প্যানেল, ডানে গতি/ভুলের হিসাব আর দুর্বল চিহ্নের তালিকা; ফোনে একটার নিচে আরেকটা */
+:root {
+  --bg: #e9eef0;
+  --surface: #fbfcfc;
+  --surface-2: #dfe6e9;
+  --ink: #17262c;
+  --muted: #5b6e75;
+  --faint: #a5b4b9;
+  --accent: #1f6f8b;      /* চিহ্ন হাইলাইট */
+  --cursor: #f0a417;      /* কার্সর, সতর্ক রং */
+  --cursor-ink: #17262c;
+  --ok: #2c8a5a;
+  --bad: #cf3f35;
+  --bad-soft: #f6d9d6;
+  --line: #cfd9dc;
+  --f-display: "Baloo Da 2", "Hind Siliguri", system-ui, sans-serif;
+  --f-body: "Hind Siliguri", "Noto Sans Bengali", system-ui, sans-serif;
+  --f-code: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1619; --surface: #162126; --surface-2: #1f2d33; --ink: #e2ecee; --muted: #8fa3a9; --faint: #4d6067;
+    --accent: #5cc3e0; --cursor: #f2b23a; --cursor-ink: #10181b; --ok: #4fc187; --bad: #ff6b5e; --bad-soft: #4a2622; --line: #2a3a41;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1619; --surface: #162126; --surface-2: #1f2d33; --ink: #e2ecee; --muted: #8fa3a9; --faint: #4d6067;
+  --accent: #5cc3e0; --cursor: #f2b23a; --cursor-ink: #10181b; --ok: #4fc187; --bad: #ff6b5e; --bad-soft: #4a2622; --line: #2a3a41;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--f-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 18px; }
+
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 14px 24px; }
+.brand h1 {
+  font-family: var(--f-display); font-weight: 800; font-size: clamp(28px, 4.4vw, 40px);
+  line-height: 1; margin: 0; letter-spacing: -0.01em; text-wrap: balance;
+}
+.brand h1 .glyphs { font-family: var(--f-code); font-weight: 700; color: var(--accent); font-size: 0.72em; margin-left: 6px; letter-spacing: 0.02em; }
+.brand p { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
+
+.langs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 10px; flex-wrap: wrap; }
+.langs button {
+  font-family: var(--f-code); font-size: 13px; font-weight: 600;
+  border: 0; background: transparent; color: var(--muted);
+  padding: 8px 14px; border-radius: 7px; cursor: pointer;
+}
+.langs button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / .08); }
+.langs button:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+@media (max-width: 900px) { .main { grid-template-columns: minmax(0, 1fr); } }
+
+/* এডিটর */
+.editor { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; position: relative; min-width: 0; }
+.tabbar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--surface-2); flex-wrap: wrap; }
+.tabbar .file { font-family: var(--f-code); font-size: 13px; color: var(--ink); font-weight: 600; }
+.tabbar .tag { font-size: 12px; color: var(--muted); }
+.tabbar .spacer { flex: 1; }
+.progress { height: 3px; background: var(--line); }
+.progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .12s linear; }
+
+.codebox { position: relative; overflow-x: auto; padding: 16px 0 18px; cursor: text; outline: none; }
+.code, .glyph, .tok, .chip, .brand .glyphs, textarea, .mine .nm, .mine .pv, .tabbar select { font-variant-ligatures: none; font-feature-settings: "calt" 0, "liga" 0; }
+.code { font-family: var(--f-code); font-size: 16px; line-height: 1.9; white-space: pre; min-width: max-content; padding-right: 20px; }
+.line { display: flex; }
+.ln { width: 3.2em; flex: none; text-align: right; padding-right: 1.1em; color: var(--faint); user-select: none; font-size: 13px; }
+.line.active .ln { color: var(--accent); font-weight: 700; }
+.c { color: var(--faint); border-radius: 2px; }
+.c.sym { color: var(--accent); opacity: .62; font-weight: 600; }
+.c.done { color: var(--ink); opacity: 1; }
+.c.done.sym { color: var(--accent); }
+.c.miss { background: var(--bad-soft); color: var(--bad); }
+.c.nl { color: var(--faint); opacity: .45; padding-left: 2px; }
+.c.cur { background: var(--cursor); color: var(--cursor-ink); opacity: 1; box-shadow: 0 0 0 1px var(--cursor); }
+.c.cur.nl { opacity: 1; }
+.c.cur.space::after { content: ""; }
+.c.wrong { animation: wrong .22s ease; background: var(--bad); color: #fff; box-shadow: 0 0 0 1px var(--bad); }
+@keyframes wrong { 0%,100% { transform: translateX(0); } 30% { transform: translateX(-2px); } 70% { transform: translateX(2px); } }
+@media (prefers-reduced-motion: reduce) { .c.wrong { animation: none; } .progress i { transition: none; } }
+
+#typer { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; resize: none; overflow: hidden; }
+.focus-hint {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  backdrop-filter: blur(1.5px); font-weight: 600; color: var(--ink); cursor: pointer; text-align: center; padding: 20px;
+}
+.focus-hint span { background: var(--ink); color: var(--surface); padding: 10px 18px; border-radius: 999px; font-size: 15px; }
+
+.statusbar { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 9px 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.statusbar kbd, .kbd { font-family: var(--f-code); font-size: 12px; background: var(--surface-2); border: 1px solid var(--line); border-bottom-width: 2px; padding: 0 6px; border-radius: 4px; color: var(--ink); }
+
+/* ফলাফল */
+.result { position: absolute; inset: 0; background: var(--surface); display: flex; flex-direction: column; justify-content: center; gap: 18px; padding: 26px clamp(18px, 4vw, 40px); overflow: auto; }
+.result h2 { font-family: var(--f-display); font-weight: 800; font-size: 28px; margin: 0; line-height: 1.1; }
+.result .big { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; }
+.result .big div { border-top: 2px solid var(--line); padding-top: 8px; }
+.result .big b { display: block; font-family: var(--f-code); font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.result .big small { color: var(--muted); font-size: 13px; }
+.result .weak-now { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--muted); font-size: 14px; }
+.chip { font-family: var(--f-code); font-weight: 700; font-size: 14px; padding: 2px 10px; border-radius: 6px; background: var(--bad-soft); color: var(--bad); }
+.chip.ok { background: var(--surface-2); color: var(--ok); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { font-family: var(--f-body); font-size: 14px; font-weight: 600; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 8px 14px; border-radius: 8px; cursor: pointer; }
+.btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.small { padding: 4px 10px; font-size: 13px; }
+
+/* পাশের প্যানেল */
+aside { display: grid; gap: 14px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+.panel h3 { margin: 0 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.live { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.live b { display: block; font-family: var(--f-code); font-size: 26px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.live small { color: var(--muted); font-size: 12.5px; }
+.live .acc.low b { color: var(--bad); }
+
+.next { display: flex; gap: 14px; align-items: center; }
+.next .glyph { flex: none; min-width: 64px; height: 64px; padding: 0 10px; display: grid; place-items: center; font-family: var(--f-code); font-weight: 700; font-size: 28px; border-radius: 10px; background: var(--surface-2); color: var(--accent); }
+.next .glyph.plain { color: var(--faint); font-size: 18px; }
+.next .name { font-weight: 600; line-height: 1.3; }
+.next .keys { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; color: var(--muted); font-size: 13px; }
+
+.weak { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.weak li { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.weak .tok { font-family: var(--f-code); font-weight: 700; font-size: 15px; text-align: center; background: var(--surface-2); border-radius: 6px; padding: 2px 4px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.weak .bar { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.weak .bar i { display: block; height: 100%; background: var(--bad); border-radius: 4px; }
+.weak .meta { font-size: 12px; color: var(--muted); grid-column: 2 / 4; margin-top: -6px; }
+.weak .pct { font-family: var(--f-code); font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink); min-width: 3.4em; text-align: right; }
+.sample-note { font-size: 12.5px; color: var(--muted); margin: 10px 0 0; padding: 8px 10px; background: var(--surface-2); border-radius: 8px; }
+.hist { display: flex; align-items: end; gap: 4px; height: 54px; margin-top: 4px; }
+.hist i { flex: 1; background: var(--accent); opacity: .75; border-radius: 3px 3px 0 0; min-height: 3px; }
+.hist-cap { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.empty { font-size: 13px; color: var(--muted); margin: 0; }
+
+.langbar { display: flex; flex-wrap: wrap; gap: 6px; }
+.langbar button {
+  font-family: var(--f-code); font-size: 13px; font-weight: 600;
+  border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+  padding: 6px 12px; border-radius: 999px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center;
+}
+.langbar button small { font-family: var(--f-body); font-weight: 500; font-size: 11.5px; color: var(--faint); }
+.langbar button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.langbar button[aria-pressed="true"] small { color: var(--surface); opacity: .7; }
+.langbar button:focus-visible, .btn:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tabbar select {
+  font-family: var(--f-code); font-size: 13px; font-weight: 600; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 7px; padding: 4px 8px; max-width: 100%; min-width: 0;
+}
+.tabbar .pick { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 220px; }
+.tabbar .pick select { flex: 1 1 auto; max-width: 340px; }
+.tabbar .tools { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* আমার কোড */
+.lib { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px clamp(14px, 3vw, 24px) 20px; display: grid; gap: 16px; }
+.lib-head h2 { font-family: var(--f-display); font-weight: 800; font-size: 24px; margin: 0; line-height: 1.15; }
+.lib-head p { margin: 4px 0 0; color: var(--muted); max-width: 70ch; }
+.lib-head code, .hintline code { font-family: var(--f-code); background: var(--surface-2); padding: 0 5px; border-radius: 4px; color: var(--ink); font-size: .92em; }
+.lib-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 900px) { .lib-grid { grid-template-columns: minmax(0, 1fr); } }
+form.add { display: grid; gap: 10px; min-width: 0; }
+.row2 { display: grid; grid-template-columns: minmax(0, 1fr) 170px; gap: 10px; }
+@media (max-width: 480px) { .row2 { grid-template-columns: minmax(0, 1fr); } }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field label { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.field input, .field select, .field textarea {
+  font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 0; width: 100%;
+}
+.field textarea { font-family: var(--f-code); font-size: 13.5px; line-height: 1.6; min-height: 200px; resize: vertical; white-space: pre; overflow: auto; tab-size: 4; }
+.formfoot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.msg { font-size: 13px; color: var(--muted); }
+.msg.ok { color: var(--ok); }
+.msg.bad { color: var(--bad); }
+.hintline { font-size: 12.5px; color: var(--muted); margin: 0; }
+
+.mine-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.mine-head h3 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+.mine-head span { font-size: 12.5px; color: var(--muted); }
+.mine { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 360px; overflow: auto; }
+.mine li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.mine li.on { border-color: var(--accent); }
+.mine .nm { font-family: var(--f-code); font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mine .pv { grid-column: 1 / -1; font-family: var(--f-code); font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mine .acts { display: flex; gap: 6px; }
+.store-note { font-size: 12.5px; color: var(--muted); margin: 0; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>চিহ্ন টাইপিং <span class="glyphs">{} =&gt; :: $this</span></h1>
+      <p>সাধারণ লেখা নয়, আসল কোড টাইপ করুন। ১৪টা ভাষা, প্রতিটায় ১০টা কোড, আর যত খুশি নিজের কোড। কোন চিহ্নে আঙুল আটকে যায়, খেলা নিজেই খুঁজে বের করবে।</p>
+    </div>
+  </header>
+
+  <nav class="langbar" id="langbar" aria-label="ভাষা বাছাই"></nav>
+
+  <div class="main">
+    <section class="editor" aria-label="টাইপ করার কোড">
+      <div class="tabbar">
+        <div class="pick">
+          <select id="snipSel" aria-label="কোড বাছাই"></select>
+          <span class="tag" id="snipTag"></span>
+        </div>
+        <div class="tools">
+          <button class="btn small" id="btnAdd" title="নিজের কোড যোগ করুন">+ নিজের কোড</button>
+          <button class="btn small" id="btnDrill" title="আপনার সবচেয়ে বেশি ভুল হওয়া চিহ্নগুলো আছে এমন লাইন দিয়ে অনুশীলন">দুর্বল চিহ্ন অনুশীলন</button>
+          <button class="btn small" id="btnRand" title="এলোমেলো একটা কোড">এলোমেলো</button>
+          <button class="btn small" id="btnNext">পরের কোড →</button>
+        </div>
+      </div>
+      <div class="progress"><i id="prog"></i></div>
+      <div class="codebox" id="codebox">
+        <textarea id="typer" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="এখানে টাইপ করুন"></textarea>
+        <div class="code" id="code"></div>
+        <div class="focus-hint" id="focusHint"><span>টাইপ শুরু করতে এখানে ক্লিক করুন</span></div>
+      </div>
+      <div class="statusbar">
+        <span><kbd>Enter</kbd> নতুন লাইন, ইনডেন্ট নিজে থেকে বসে যায়</span>
+        <span><kbd>Esc</kbd> আবার শুরু</span>
+        <span>ভুল চাপলে কার্সর আটকে থাকবে, ঠিকটা চাপুন</span>
+      </div>
+      <div class="result" id="result" hidden></div>
+    </section>
+
+    <aside>
+      <div class="panel">
+        <h3>এই রাউন্ড</h3>
+        <div class="live">
+          <div><b id="sWpm">০</b><small>শব্দ/মিনিট</small></div>
+          <div class="acc" id="accBox"><b id="sAcc">১০০%</b><small>নির্ভুলতা</small></div>
+          <div><b id="sTime">০:০০</b><small>সময়</small></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>এখন যা চাপবেন</h3>
+        <div class="next">
+          <div class="glyph" id="nGlyph">&lt;?php</div>
+          <div>
+            <div class="name" id="nName">PHP ওপেনিং ট্যাগ</div>
+            <div class="keys" id="nKeys"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3><span>দুর্বল চিহ্ন · <span id="weakLang">PHP</span></span><button class="btn small" id="btnReset" hidden>মুছুন</button></h3>
+        <ul class="weak" id="weakList"></ul>
+        <p class="sample-note" id="sampleNote" hidden>এগুলো নমুনা। একটা কোড শেষ করলেই এখানে আপনার নিজের হিসাব দেখাবে।</p>
+      </div>
+
+      <div class="panel">
+        <h3>সাম্প্রতিক গতি</h3>
+        <div id="histBox"></div>
+      </div>
+    </aside>
+  </div>
+
+  <section class="lib" id="lib" aria-labelledby="libTitle">
+    <div class="lib-head">
+      <h2 id="libTitle">আমার কোড</h2>
+      <p>নিজের প্রজেক্টের কোড পেস্ট করুন, সেটাই টাইপ করার তালিকায় চলে আসবে। একসাথে অনেকগুলো যোগ করতে চাইলে প্রতিটা কোডের মাঝে আলাদা লাইনে শুধু <code>---</code> লিখুন।</p>
+    </div>
+    <div class="lib-grid">
+      <form class="add" id="addForm" novalidate>
+        <div class="row2">
+          <div class="field">
+            <label for="addName">নাম (ফাঁকা রাখলে নিজে থেকে বসবে)</label>
+            <input id="addName" type="text" maxlength="60" placeholder="যেমন: PaymentService.php" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="addLang">ভাষা</label>
+            <select id="addLang"></select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="addText">কোড</label>
+          <textarea id="addText" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="public function store(Request $request)
+{
+    $data = $request->validate(['title' => 'required']);
+    return Post::create($data);
+}
+---
+Route::post('/posts', [PostController::class, 'store']);"></textarea>
+        </div>
+        <div class="formfoot">
+          <button class="btn primary" type="submit" id="addBtn">যোগ করুন</button>
+          <span class="msg" id="addMsg" role="status"></span>
+        </div>
+        <p class="hintline">ট্যাব নিজে থেকে ৪টা স্পেস হয়ে যায়, লাইনের শেষের ফাঁকা জায়গা বাদ পড়ে। একটা কোডে সর্বোচ্চ ৪০ লাইন।</p>
+      </form>
+      <div>
+        <div class="mine-head">
+          <h3 id="mineTitle">PHP-এ আমার কোড</h3>
+          <span id="mineCount"></span>
+        </div>
+        <ul class="mine" id="mineList"></ul>
+      </div>
+    </div>
+    <p class="store-note" id="storeNote">সংরক্ষণের জায়গা খোঁজা হচ্ছে…</p>
+  </section>
+</div>
+
+<!-- ===== তৈরি করা কোড: প্রতিটা "=== ফাইলের নাম" লাইন থেকে নতুন কোড শুরু ===== -->
+<script type="text/plain" class="lib-src" data-lang="php">
+=== UserController.php
+<?php
+class UserController
+{
+    public function show(int $id): array
+    {
+        $user = $this->repo->find($id);
+        return ['name' => $user->name, 'id' => $id];
+    }
+}
+=== routes/web.php
+Route::get('/posts/{id}', [PostController::class, 'show'])
+    ->middleware('auth')
+    ->name('posts.show');
+=== Config.php
+class Config
+{
+    private static ?Config $instance = null;
+
+    public static function get(): self
+    {
+        return self::$instance ??= new self();
+    }
+}
+=== OrderService.php
+foreach ($orders as $key => $order) {
+    if ($order->status !== 'paid') {
+        continue;
+    }
+    $this->notify($order->user?->email);
+}
+=== cart.php
+$prices = array_map(fn($p) => $p * 1.15, $items);
+$total = array_sum($prices) ?? 0;
+echo "Total: {$total}";
+=== status.php
+$label = match ($status) {
+    'paid' => 'Paid',
+    'pending', 'draft' => 'Waiting',
+    default => 'Unknown',
+};
+=== UserQuery.php
+$users = User::where('active', true)
+    ->orderBy('created_at', 'desc')
+    ->take(10)
+    ->get();
+=== Money.php
+final class Money
+{
+    public function __construct(
+        private readonly int $amount,
+        private readonly string $currency = 'BDT',
+    ) {}
+}
+=== db.php
+try {
+    $pdo = new PDO($dsn, $user, $pass);
+} catch (PDOException $e) {
+    error_log($e->getMessage());
+    exit(1);
+}
+=== people.php
+$adults = array_filter($people, fn(array $p): bool => $p['age'] >= 18);
+$names = implode(', ', array_column($adults, 'name'));
+</script>
+
+<script type="text/plain" class="lib-src" data-lang="js">
+=== cart.js
+const total = cart.items
+  .filter((item) => item.qty > 0)
+  .reduce((sum, item) => sum + item.price * item.qty, 0);
+=== api.js
+async function loadUser(id) {
+  const res = await fetch(`/api/users/${id}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+=== destructure.js
+const { name, age = 18, ...rest } = user;
+const tags = [...new Set(posts.flatMap((p) => p.tags))];
+const city = user?.address?.city ?? 'Dhaka';
+=== events.js
+document.querySelector('#save').addEventListener('click', (e) => {
+  e.preventDefault();
+  state.count = (state.count ?? 0) + 1;
+});
+=== Stack.js
+class Stack {
+  #items = [];
+  push(x) { this.#items.push(x); return this; }
+  get size() { return this.#items.length; }
+}
+=== dashboard.js
+const [user, posts] = await Promise.all([
+  getUser(id),
+  getPosts({ userId: id, limit: 20 }),
+]);
+=== group.js
+const byCat = items.reduce((acc, it) => {
+  (acc[it.cat] ||= []).push(it);
+  return acc;
+}, {});
+=== debounce.js
+export default function debounce(fn, ms = 300) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
+}
+=== validate.js
+const isEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+const msg = isEmail(input) ? 'OK' : `Invalid: ${input}`;
+=== List.jsx
+const List = ({ items }) => (
+  <ul>
+    {items.map((x) => <li key={x.id}>{x.label}</li>)}
+  </ul>
+);
+</script>
+
+<script type="text/plain" class="lib-src" data-lang="ts">
+=== user.ts
+interface User {
+  id: number;
+  name: string;
+  email?: string;
+  readonly roles: Role[];
+}
+=== result.ts
+type Result<T> = { ok: true; data: T } | { ok: false; error: string };
+=== first.ts
+function first<T>(arr: T[]): T | undefined {
+  return arr[0];
+}
+=== status.ts
+enum Status {
+  Active = 'ACTIVE',
+  Banned = 'BANNED',
+}
+=== http.ts
+async function getJson<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  return (await res.json()) as T;
+}
+=== repo.ts
+class Repo<T extends { id: number }> {
+  private items = new Map<number, T>();
+  save(item: T): void { this.items.set(item.id, item); }
+}
+=== types.ts
+type PartialUser = Partial<Pick<User, 'name' | 'email'>>;
+type Keys = keyof typeof config;
+=== prices.ts
+const prices: Record<string, number> = { tea: 20, coffee: 80 };
+const sum = Object.values(prices).reduce((a, b) => a + b, 0);
+=== narrow.ts
+function len(x: string | string[]): number {
+  if (typeof x === 'string') return x.length;
+  return x.reduce((n, s) => n + s.length, 0);
+}
+=== routes.ts
+export const routes = {
+  home: '/',
+  post: (id: number) => `/posts/${id}`,
+} as const satisfies Record<string, unknown>;
+</script>
+
+<script type="text/plain" class="lib-src" data-lang="py">
+=== greet.py
+def greet(name: str, times: int = 1) -> str:
+    return ", ".join([f"Hello {name}"] * times)
+=== squares.py
+squares = {n: n ** 2 for n in range(10) if n % 2 == 0}
+evens = [x // 2 for x in squares.values()]
+=== point.py
+class Point:
+    def __init__(self, x: float, y: float) -> None:
+        self.x, self.y = x, y
+
+    def __repr__(self) -> str:
+        return f"Point({self.x}, {self.y})"
+=== read_csv.py
+with open("data.csv", encoding="utf-8") as f:
+    rows = [line.strip().split(",") for line in f]
+=== parse.py
+try:
+    value = int(raw)
+except (ValueError, TypeError) as e:
+    print(f"bad input: {e!r}")
+    value = 0
+=== order.py
+@dataclass(frozen=True)
+class Order:
+    id: int
+    items: list[str] = field(default_factory=list)
+=== decorator.py
+def log_call(fn):
+    def wrapper(*args, **kwargs):
+        print(f"-> {fn.__name__}{args}")
+        return fn(*args, **kwargs)
+    return wrapper
+=== fetch.py
+async def fetch_all(urls: list[str]) -> list[dict]:
+    async with aiohttp.ClientSession() as s:
+        return await asyncio.gather(*(get(s, u) for u in urls))
+=== top.py
+if (n := len(items)) > 10:
+    print(f"too many: {n}")
+top = sorted(users, key=lambda u: u["score"], reverse=True)[:3]
+=== main.py
+@app.get("/items/{item_id}")
+def read_item(item_id: int, q: str | None = None):
+    return {"item_id": item_id, "q": q}
+</script>
+
+<script type="text/plain" class="lib-src" data-lang="java">
+=== Main.java
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, " + args[0]);
+    }
+}
+=== Adults.java
+List<String> names = users.stream()
+    .filter(u -> u.getAge() >= 18)
+    .map(User::getName)
+    .collect(Collectors.toList());
+=== WordCount.java
+Map<String, Integer> counts = new HashMap<>();
+for (String w : words) {
+    counts.merge(w, 1, Integer::sum);
+}
+=== Point.java
+public record Point(int x, int y) {
+    public double dist() { return Math.sqrt(x * x + y * y); }
+}
+=== Lines.java
+try (var reader = new BufferedReader(new FileReader(path))) {
+    return reader.lines().count();
+} catch (IOException e) {
+    throw new UncheckedIOException(e);
+}
+=== User.java
+@Override
+public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof User other)) return false;
+    return id == other.id;
+}
+=== UserController.java
+@RestController
+@RequestMapping("/api/users")
+public class UserController {
+    @GetMapping("/{id}")
+    public User get(@PathVariable Long id) { return service.find(id); }
+}
+=== Lookup.java
+Optional<User> user = repo.findById(id);
+String name = user.map(User::getName).orElse("guest");
+=== Day.java
+switch (day) {
+    case MONDAY, FRIDAY -> System.out.println("work");
+    case SUNDAY -> System.out.println("rest");
+    default -> {}
+}
+=== Bubble.java
+for (int i = 0; i < arr.length - 1; i++) {
+    if (arr[i] > arr[i + 1]) {
+        int tmp = arr[i]; arr[i] = arr[i + 1]; arr[i + 1] = tmp;
+    }
+}
+</script>
+
+<script type="text/plain" class="lib-src" data-lang="c">
+=== hello.c
+#include <stdio.h>
+
+int main(void) {
+    printf("Hello, %s!\n", "world");
+    return 0;
+}
+=== sum.c
+int sum(const int *arr, size_t n) {
+    int s = 0;
+    for (size_t i = 0; i < n; i++) s += arr[i];
+    return s;
+}
+=== person.h
+typedef struct {
+    char name[32];
+    int age;
+} Person;
+=== alloc.c
+Person *p = malloc(sizeof(Person));
+if (p == NULL) return -1;
+p->age = 21;
+free(p);
+=== swap.c
+void swap(int *a, int *b) {
+    int t = *a;
+    *a = *b;
+    *b = t;
+}
+=== macros.h
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define LEN(x) (sizeof(x) / sizeof((x)[0]))
+=== log.c
+FILE *fp = fopen("log.txt", "a");
+if (!fp) { perror("fopen"); return 1; }
+fprintf(fp, "%d items\n", count);
+fclose(fp);
+=== lines.c
+while ((c = getchar()) != EOF) {
+    if (c == '\n') lines++;
+}
+=== flags.c
+unsigned int flags = 0;
+flags |= 1u << 3;
+if (flags & (1u << 3)) puts("bit 3 on");
+=== list.c
+struct node {
+    int val;
+    struct node *next;
+};
+for (struct node *n = head; n != NULL; n = n->next) printf("%d ", n->val);
+</script>
+
+<script type="text/plain" class="lib-src" data-lang="cpp">
+=== main.cpp
+#include <iostream>
+#include <vector>
+
+int main() {
+    std::vector<int> v{1, 2, 3};
+    for (const auto& x : v) std::cout << x << '\n';
+}
+=== find.cpp
+auto it = std::find_if(v.begin(), v.end(), [](int x) { return x > 10; });
+if (it != v.end()) std::cout << *it;
+=== shape.hpp
+class Shape {
+public:
+    virtual ~Shape() = default;
+    virtual double area() const = 0;
+};
+=== max.hpp
+template <typename T>
+T maxOf(const std::vector<T>& v) {
+    return *std::max_element(v.begin(), v.end());
+}
+=== ages.cpp
+std::map<std::string, int> ages{{"rafi", 21}, {"mitu", 19}};
+for (auto& [name, age] : ages) std::cout << name << ": " << age << "\n";
+=== ptr.cpp
+auto w = std::make_unique<Widget>(42);
+std::shared_ptr<Node> root = std::make_shared<Node>();
+=== geo.hpp
+namespace geo {
+struct Point { double x, y; };
+Point operator+(Point a, Point b) { return {a.x + b.x, a.y + b.y}; }
+}
+=== sort.cpp
+std::sort(people.begin(), people.end(),
+          [](const Person& a, const Person& b) { return a.age < b.age; });
+=== split.cpp
+std::stringstream ss("a,b,c");
+for (std::string tok; std::getline(ss, tok, ',');) parts.push_back(tok);
+=== cp.cpp
+constexpr int N = 1e5 + 5;
+int dp[N];
+ios::sync_with_stdio(false);
+cin.tie(nullptr);
+</script>
+
+<script type="text/plain" class="lib-src" data-lang="cs">
+=== User.cs
+public class User
+{
+    public int Id { get; set; }
+    public string Name { get; init; } = "";
+}
+=== Adults.cs
+var adults = people.Where(p => p.Age >= 18).Select(p => p.Name).ToList();
+=== UserService.cs
+public async Task<User?> GetAsync(int id)
+{
+    return await _db.Users.FirstOrDefaultAsync(u => u.Id == id);
+}
+=== Grade.cs
+string label = score switch
+{
+    >= 80 => "A+",
+    >= 60 => "B",
+    _ => "F",
+};
+=== Greet.cs
+var name = user?.Profile?.Name ?? "guest";
+Console.WriteLine($"Hi {name}, you have {count} messages");
+=== ItemsController.cs
+[HttpGet("{id:int}")]
+public IActionResult Get(int id) => Ok(_service.Find(id));
+=== ReadFile.cs
+using var stream = File.OpenRead(path);
+using var reader = new StreamReader(stream);
+var text = await reader.ReadToEndAsync();
+=== Point.cs
+public record Point(int X, int Y);
+var p2 = p1 with { Y = 10 };
+=== Dict.cs
+var dict = new Dictionary<string, List<int>>();
+if (!dict.TryGetValue(key, out var list)) dict[key] = list = new();
+list.Add(42);
+=== Events.cs
+public event EventHandler<string>? Changed;
+protected void OnChanged(string v) => Changed?.Invoke(this, v);
+</script>
+
+<script type="text/plain" class="lib-src" data-lang="go">
+=== main.go
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Hello, Go")
+}
+=== divide.go
+func divide(a, b float64) (float64, error) {
+    if b == 0 {
+        return 0, errors.New("divide by zero")
+    }
+    return a / b, nil
+}
+=== user.go
+type User struct {
+    ID int `json:"id"`
+    Name string `json:"name"`
+}
+=== evens.go
+for i, v := range nums {
+    if v%2 == 0 {
+        evens = append(evens, i)
+    }
+}
+=== chan.go
+ch := make(chan int, 10)
+go func() {
+    defer close(ch)
+    for i := 0; i < 5; i++ { ch <- i }
+}()
+=== stack.go
+func (s *Stack) Push(v int) { s.items = append(s.items, v) }
+func (s *Stack) Len() int { return len(s.items) }
+=== server.go
+http.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
+    w.WriteHeader(http.StatusOK)
+    fmt.Fprintf(w, "pong %s", r.URL.Path)
+})
+=== db.go
+if err := db.Ping(); err != nil {
+    log.Fatalf("db: %v", err)
+}
+=== words.go
+counts := map[string]int{}
+for _, w := range strings.Fields(text) {
+    counts[strings.ToLower(w)]++
+}
+=== shape.go
+type Shape interface {
+    Area() float64
+}
+var _ Shape = (*Circle)(nil)
+</script>
+
+<script type="text/plain" class="lib-src" data-lang="rust">
+=== main.rs
+fn main() {
+    let name = String::from("Rust");
+    println!("Hello, {}!", name);
+}
+=== divide.rs
+fn divide(a: f64, b: f64) -> Result<f64, String> {
+    if b == 0.0 { return Err("divide by zero".into()); }
+    Ok(a / b)
+}
+=== user.rs
+#[derive(Debug, Clone, PartialEq)]
+struct User {
+    id: u32,
+    name: String,
+}
+=== evens.rs
+let evens: Vec<i32> = nums.iter().filter(|&&x| x % 2 == 0).cloned().collect();
+=== cmd.rs
+match cmd.as_str() {
+    "start" | "run" => start(),
+    s if s.starts_with('-') => flag(s),
+    _ => println!("unknown"),
+}
+=== stack.rs
+impl Stack {
+    fn push(&mut self, v: i32) { self.items.push(v); }
+    fn pop(&mut self) -> Option<i32> { self.items.pop() }
+}
+=== read.rs
+let text = std::fs::read_to_string("in.txt")?;
+let n: usize = text.trim().parse().unwrap_or(0);
+=== lines.rs
+for (i, line) in text.lines().enumerate() {
+    if let Some(rest) = line.strip_prefix("#") {
+        println!("{i}: {rest}");
+    }
+}
+=== longest.rs
+fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
+    if x.len() > y.len() { x } else { y }
+}
+=== count.rs
+let mut map: HashMap<&str, i32> = HashMap::new();
+*map.entry("rafi").or_insert(0) += 1;
+for i in 0..=10 { total += i; }
+</script>
+
+<script type="text/plain" class="lib-src" data-lang="kotlin">
+=== User.kt
+data class User(val id: Int, val name: String, val email: String? = null)
+=== Greet.kt
+fun greet(name: String = "world"): String = "Hello, $name!"
+val adults = people.filter { it.age >= 18 }.map { it.name }
+=== Safe.kt
+val len = text?.length ?: 0
+val sure = maybe!!.trim()
+=== Status.kt
+when (status) {
+    "paid" -> ship(order)
+    "pending", "draft" -> remind(order)
+    else -> throw IllegalStateException("bad: $status")
+}
+=== Repo.kt
+class Repo(private val api: Api) {
+    suspend fun load(id: Int): User = withContext(Dispatchers.IO) {
+        api.getUser(id)
+    }
+}
+=== Loop.kt
+for (i in 1..10 step 2) println("i = ${i * i}")
+=== Map.kt
+val map = mutableMapOf("a" to 1, "b" to 2)
+map["c"] = map.getOrDefault("c", 0) + 3
+=== Config.kt
+object Config {
+    const val BASE_URL = "https://api.example.com"
+}
+=== Greeting.kt
+@Composable
+fun Greeting(name: String, modifier: Modifier = Modifier) {
+    Text(text = "Hi $name", modifier = modifier.padding(16.dp))
+}
+=== Sealed.kt
+sealed interface UiState {
+    object Loading : UiState
+    data class Ready(val items: List<Item>) : UiState
+}
+</script>
+
+<script type="text/plain" class="lib-src" data-lang="swift">
+=== User.swift
+struct User: Codable {
+    let id: Int
+    var name: String
+    var email: String?
+}
+=== Greet.swift
+func greet(_ name: String, times: Int = 1) -> String {
+    return String(repeating: "Hi \(name) ", count: times)
+}
+=== Guard.swift
+guard let url = URL(string: urlString) else { return }
+if let name = user?.name { print(name) }
+=== Adults.swift
+let adults = people.filter { $0.age >= 18 }.map(\.name)
+=== Direction.swift
+enum Direction: String, CaseIterable {
+    case north, south, east, west
+}
+=== Grade.swift
+switch score {
+case 80...100: grade = "A+"
+case 60..<80: grade = "B"
+default: grade = "F"
+}
+=== ViewModel.swift
+class ViewModel: ObservableObject {
+    @Published var items: [Item] = []
+}
+=== ContentView.swift
+struct ContentView: View {
+    @State private var count = 0
+    var body: some View {
+        Button("Tap \(count)") { count += 1 }
+    }
+}
+=== Load.swift
+func load() async throws -> [Post] {
+    let (data, _) = try await URLSession.shared.data(from: url)
+    return try JSONDecoder().decode([Post].self, from: data)
+}
+=== Total.swift
+extension Array where Element: Numeric {
+    var total: Element { reduce(0, +) }
+}
+</script>
+
+<script type="text/plain" class="lib-src" data-lang="dart">
+=== user.dart
+class User {
+  final String name;
+  final int? age;
+
+  const User({required this.name, this.age});
+}
+=== post_repo.dart
+Future<List<Post>> fetchPosts() async {
+  final res = await http.get(Uri.parse('$baseUrl/posts'));
+  final data = jsonDecode(res.body) as List;
+  return data.map((e) => Post.fromJson(e)).toList();
+}
+=== post_list.dart
+@override
+Widget build(BuildContext context) {
+  return ListView.builder(
+    itemCount: items.length,
+    itemBuilder: (context, i) => Text(items[i].title),
+  );
+}
+=== scores.dart
+final scores = <String, int>{'rafi': 42, 'mitu': 37};
+scores.forEach((k, v) => print('$k: ${v * 2}'));
+final top = scores.entries.where((e) => e.value > 40).toList();
+=== painter.dart
+final paint = Paint()
+  ..color = Colors.teal
+  ..strokeWidth = 4.0
+  ..style = PaintingStyle.stroke;
+=== status.dart
+final label = switch (status) {
+  Status.active => 'Active',
+  Status.banned => 'Banned',
+};
+=== countdown.dart
+Stream<int> countdown(int from) async* {
+  for (var i = from; i >= 0; i--) {
+    yield i;
+  }
+}
+=== null_safety.dart
+final name = user?.profile?.name ?? 'guest';
+late final String token;
+=== counter.dart
+class Counter extends ChangeNotifier {
+  int _count = 0;
+  int get count => _count;
+  void inc() { _count++; notifyListeners(); }
+}
+=== records.dart
+final list = [1, 2, 3, ...more, if (showZero) 0];
+final (x, y) = (10, 20);
+</script>
+
+<script type="text/plain" class="lib-src" data-lang="sql">
+=== report.sql
+SELECT u.id, u.name, COUNT(o.id) AS orders
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+WHERE u.created_at >= '2026-01-01'
+GROUP BY u.id, u.name
+HAVING COUNT(o.id) > 3;
+=== schema.sql
+CREATE TABLE products (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(120) NOT NULL,
+  price DECIMAL(10, 2) DEFAULT 0.00
+);
+=== transfer.sql
+UPDATE accounts
+SET balance = balance - 500
+WHERE id = 7 AND balance >= 500;
+=== top_products.sql
+SELECT name, price
+FROM products
+WHERE category_id IN (SELECT id FROM categories WHERE slug <> 'archive')
+ORDER BY price DESC
+LIMIT 10;
+=== logs.sql
+INSERT INTO logs (user_id, action, meta)
+VALUES (12, 'login', '{"ip": "10.0.0.4"}'),
+       (15, 'logout', NULL);
+=== cleanup.sql
+DELETE FROM sessions
+WHERE expires_at < NOW() - INTERVAL 7 DAY;
+=== salary.sql
+SELECT d.name, AVG(e.salary) AS avg_salary
+FROM employees e
+INNER JOIN departments d ON d.id = e.dept_id
+GROUP BY d.name
+ORDER BY avg_salary DESC;
+=== latest.sql
+WITH ranked AS (
+  SELECT *, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn
+  FROM orders
+)
+SELECT * FROM ranked WHERE rn = 1;
+=== index.sql
+CREATE INDEX idx_users_email ON users (email);
+ALTER TABLE users ADD COLUMN phone VARCHAR(20) NULL;
+=== stock.sql
+SELECT name,
+       CASE WHEN stock = 0 THEN 'out' WHEN stock < 10 THEN 'low' ELSE 'ok' END AS level
+FROM products
+WHERE name LIKE '%phone%';
+</script>
+
+<script>
+(() => {
+  const LANGS = [
+    ['php', 'PHP', 'php'], ['js', 'JavaScript', 'js'], ['ts', 'TypeScript', 'ts'], ['py', 'Python', 'py'],
+    ['java', 'Java', 'java'], ['c', 'C', 'c'], ['cpp', 'C++', 'cpp'], ['cs', 'C#', 'cs'], ['go', 'Go', 'go'],
+    ['rust', 'Rust', 'rs'], ['kotlin', 'Kotlin', 'kt'], ['swift', 'Swift', 'swift'], ['dart', 'Dart', 'dart'], ['sql', 'SQL', 'sql']
+  ];
+  const LABEL = Object.fromEntries(LANGS.map(l => [l[0], l[1]]));
+  const EXT = Object.fromEntries(LANGS.map(l => [l[0], l[2]]));
+
+  // ---- তৈরি করা কোড পড়া ----
+  const BUILTIN = {};
+  document.querySelectorAll('script.lib-src').forEach(s => {
+    const list = (BUILTIN[s.dataset.lang] ||= []);
+    const parts = s.textContent.split(/^=== (.+)$/m);
+    for (let i = 1; i < parts.length; i += 2) {
+      list.push({ file: parts[i].trim(), text: parts[i + 1].replace(/^\n+|\s+$/g, ''), mine: false });
+    }
+  });
+
+  // লম্বা টোকেন আগে মিলবে, যাতে "=>" কে "=" আর ">" হিসেবে না ধরে
+  const TOKENS = ['<?php', '#include', '#define', '$this', '&mut', '??=', '?->', '===', '!==', '...', '..=', '..<', '=>', '->', '<-', '::', '??', '?.', '?:', '!!',
+    '&&', '||', '==', '!=', '<=', '>=', '<>', '<<', '>>', ':=', '**', '++', '--', '+=', '-=', '*=', '/=', '|=', '||=', '//', '#[', '..', '${', '\\(',
+    '{', '}', '(', ')', '[', ']', ';', ':', '$', '"', "'", '`', '<', '>', '=', '.', ',', '!', '?', '&', '|', '*', '/', '+', '-', '%', '@', '#', '_', '\\', '^', '~']
+    .sort((a, b) => b.length - a.length);
+
+  const SHIFT = { '{': '[', '}': ']', '(': '9', ')': '0', ':': ';', '$': '4', '"': "'", '<': ',', '>': '.', '!': '1', '?': '/', '&': '7', '|': '\\', '*': '8', '+': '=', '%': '5', '@': '2', '#': '3', '_': '-', '^': '6', '~': '`' };
+  const NAMES = {
+    '<?php': 'PHP ওপেনিং ট্যাগ', '#include': 'হেডার ফাইল যোগ', '#define': 'ম্যাক্রো', '$this': 'বর্তমান অবজেক্ট', '&mut': 'পরিবর্তনযোগ্য রেফারেন্স',
+    '??=': 'নাল হলে অ্যাসাইন', '?->': 'নালসেফ অ্যারো', '===': 'কঠোর সমান', '!==': 'কঠোর অসমান', '...': 'স্প্রেড / রেস্ট / রেঞ্জ',
+    '..=': 'রেঞ্জ (শেষটা সহ)', '..<': 'রেঞ্জ (শেষটা বাদে)', '=>': 'ফ্যাট অ্যারো', '->': 'অ্যারো', '<-': 'চ্যানেলে পাঠানো', '::': 'ডাবল কোলন',
+    '??': 'নাল কোয়েলেসিং', '?.': 'অপশনাল চেইনিং', '?:': 'এলভিস অপারেটর', '!!': 'নট-নাল জোর করে', '&&': 'এবং (AND)', '||': 'অথবা (OR)',
+    '==': 'সমান কিনা', '!=': 'অসমান', '<=': 'ছোট বা সমান', '>=': 'বড় বা সমান', '<>': 'অসমান (SQL)', '<<': 'বাঁয়ে শিফট / স্ট্রিমে পাঠানো',
+    '>>': 'ডানে শিফট', ':=': 'ঘোষণা ও অ্যাসাইন', '**': 'ঘাত / kwargs', '++': 'এক বাড়ানো', '--': 'এক কমানো', '+=': 'যোগ করে অ্যাসাইন',
+    '-=': 'বিয়োগ করে অ্যাসাইন', '*=': 'গুণ করে অ্যাসাইন', '/=': 'ভাগ করে অ্যাসাইন', '|=': 'OR করে অ্যাসাইন', '||=': 'ফাঁকা হলে অ্যাসাইন',
+    '//': 'পূর্ণসংখ্যা ভাগ / কমেন্ট', '#[': 'অ্যাট্রিবিউট (Rust)', '..': 'ক্যাসকেড / রেঞ্জ', '${': 'স্ট্রিং ইন্টারপোলেশন', '\\(': 'স্ট্রিং ইন্টারপোলেশন (Swift)',
+    '{': 'কার্লি ব্রেস খোলা', '}': 'কার্লি ব্রেস বন্ধ', '(': 'প্রথম বন্ধনী খোলা', ')': 'প্রথম বন্ধনী বন্ধ', '[': 'স্কয়ার ব্র্যাকেট খোলা',
+    ']': 'স্কয়ার ব্র্যাকেট বন্ধ', ';': 'সেমিকোলন', ':': 'কোলন', '$': 'ডলার', '"': 'ডাবল কোট', "'": 'সিঙ্গেল কোট', '`': 'ব্যাকটিক',
+    '<': 'ছোট চিহ্ন / অ্যাঙ্গেল খোলা', '>': 'বড় চিহ্ন / অ্যাঙ্গেল বন্ধ', '=': 'সমান (অ্যাসাইন)', '.': 'ডট', ',': 'কমা', '!': 'না (NOT)',
+    '?': 'প্রশ্নবোধক', '&': 'অ্যাম্পারস্যান্ড', '|': 'পাইপ', '*': 'তারকা / পয়েন্টার', '/': 'স্ল্যাশ', '+': 'যোগ', '-': 'বিয়োগ / হাইফেন', '%': 'শতাংশ / ভাগশেষ',
+    '@': 'অ্যাট (অ্যানোটেশন)', '#': 'হ্যাশ', '_': 'আন্ডারস্কোর', '\\': 'ব্যাকস্ল্যাশ', '^': 'ক্যারেট', '~': 'টিল্ডা'
+  };
+
+  const BN = '০১২৩৪৫৬৭৮৯';
+  const bn = v => String(v).replace(/\d/g, d => BN[d]);
+  const fmtTime = ms => { const s = Math.floor(ms / 1000); return bn(Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0')); };
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // ---- হিসাব (এই ব্রাউজারে) ----
+  const KEY = 'chihno-typing-v1', MINE_KEY = 'chihno-typing-mine-v1';
+  let store = { stats: {}, hist: [] };
+  try { const raw = localStorage.getItem(KEY); if (raw) store = Object.assign(store, JSON.parse(raw)); } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
+
+  // ---- আমার কোড: অ্যাকাউন্টে (db) অথবা এই ব্রাউজারে ----
+  let MINE = [];          // {id, lang, name, text, at}
+  let mineCol = null;     // db collection, পাওয়া গেলে
+  const loadLocalMine = () => { try { return JSON.parse(localStorage.getItem(MINE_KEY) || '[]'); } catch (e) { return []; } };
+  const saveLocalMine = () => { try { localStorage.setItem(MINE_KEY, JSON.stringify(MINE)); return true; } catch (e) { return false; } };
+  MINE = loadLocalMine();
+
+  // ---- অবস্থা ----
+  const S = { lang: 'php', idx: 0, drill: false };
+  let R;
+
+  const $ = id => document.getElementById(id);
+  const codeEl = $('code'), typer = $('typer'), hint = $('focusHint'), resultEl = $('result');
+
+  const listFor = lang => (BUILTIN[lang] || []).concat(
+    MINE.filter(m => m.lang === lang).sort((a, b) => a.at - b.at).map(m => ({ file: m.name, text: m.text, mine: true, id: m.id })));
+
+  function tokenize(text) {
+    const tokAt = new Array(text.length).fill(-1);
+    const toks = [];
+    let i = 0;
+    while (i < text.length) {
+      const t = TOKENS.find(t => text.startsWith(t, i));
+      if (t) {
+        const id = toks.length;
+        toks.push({ t, start: i, len: t.length, missed: false });
+        for (let k = 0; k < t.length; k++) tokAt[i + k] = id;
+        i += t.length;
+      } else i++;
+    }
+    return { tokAt, toks };
+  }
+
+  function buildRound(text, file, tag) {
+    const { tokAt, toks } = tokenize(text);
+    const indent = new Array(text.length).fill(false);
+    let lineStart = true;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (ch === '\n') { lineStart = true; continue; }
+      if (lineStart && ch === ' ') indent[i] = true; else lineStart = false;
+    }
+    clearInterval(tick);
+    R = { text, file, tag, tokAt, toks, indent, pos: 0, keys: 0, good: 0, miss: 0, confuse: [], t0: 0, t1: 0, done: false, spans: [], lines: [] };
+    activeLine = -1;
+    render();
+    skipIndent();
+    paintCursor(-1);
+    updateLive();
+    resultEl.hidden = true;
+    $('snipTag').textContent = tag;
+  }
+
+  function render() {
+    codeEl.textContent = '';
+    const frag = document.createDocumentFragment();
+    let lineEl, lineNo = 0;
+    const newLine = () => {
+      lineNo++;
+      lineEl = document.createElement('div'); lineEl.className = 'line';
+      const ln = document.createElement('span'); ln.className = 'ln'; ln.textContent = lineNo;
+      lineEl.appendChild(ln); frag.appendChild(lineEl); R.lines.push(lineEl);
+    };
+    newLine();
+    for (let i = 0; i < R.text.length; i++) {
+      const ch = R.text[i];
+      const sp = document.createElement('span');
+      sp.className = 'c' + (R.tokAt[i] >= 0 ? ' sym' : '');
+      sp.dataset.line = lineNo - 1;
+      if (ch === '\n') { sp.classList.add('nl'); sp.textContent = '↵'; lineEl.appendChild(sp); R.spans.push(sp); newLine(); continue; }
+      sp.textContent = ch;
+      lineEl.appendChild(sp); R.spans.push(sp);
+    }
+    codeEl.appendChild(frag);
+  }
+
+  function skipIndent() {
+    while (R.pos < R.text.length && R.indent[R.pos]) { R.spans[R.pos].classList.add('done'); R.pos++; }
+  }
+
+  let activeLine = -1;
+  function paintCursor(prev) {
+    if (prev >= 0 && R.spans[prev]) R.spans[prev].classList.remove('cur', 'wrong');
+    const sp = R.spans[R.pos];
+    if (sp) {
+      sp.classList.add('cur');
+      const l = +sp.dataset.line;
+      if (l !== activeLine) { R.lines[activeLine]?.classList.remove('active'); R.lines[l]?.classList.add('active'); activeLine = l; }
+      const box = $('codebox');
+      const r = sp.getBoundingClientRect(), b = box.getBoundingClientRect();
+      if (r.right > b.right - 30) box.scrollLeft += r.right - b.right + 60;
+      else if (r.left < b.left + 60) box.scrollLeft = Math.max(0, box.scrollLeft - (b.left + 60 - r.left));
+    }
+    $('prog').style.width = (R.pos / R.text.length * 100) + '%';
+    showNext();
+  }
+
+  function keyHtml(ch) {
+    if (SHIFT[ch]) return '<span class="kbd">Shift</span>+<span class="kbd">' + esc(SHIFT[ch]) + '</span>';
+    return '<span class="kbd">' + esc(ch) + '</span>';
+  }
+
+  function showNext() {
+    const g = $('nGlyph'), n = $('nName'), k = $('nKeys');
+    if (R.done) { g.textContent = '✓'; g.className = 'glyph'; n.textContent = 'শেষ!'; k.innerHTML = ''; return; }
+    const i = R.pos, ch = R.text[i], tid = R.tokAt[i];
+    if (tid >= 0) {
+      const tk = R.toks[tid];
+      g.className = 'glyph'; g.textContent = tk.t;
+      n.textContent = NAMES[tk.t] || tk.t;
+      const off = i - tk.start;
+      k.innerHTML = [...tk.t].map((c, j) => j < off ? '<s style="opacity:.4">' + keyHtml(c) + '</s>' : keyHtml(c)).join(' ');
+    } else {
+      g.className = 'glyph plain';
+      if (ch === '\n') { g.textContent = '↵'; n.textContent = 'নতুন লাইন'; k.innerHTML = '<span class="kbd">Enter</span>'; }
+      else if (ch === ' ') { g.textContent = '␣'; n.textContent = 'স্পেস'; k.innerHTML = '<span class="kbd">Space</span>'; }
+      else {
+        g.textContent = ch;
+        n.textContent = /[A-Z]/.test(ch) ? 'বড় হাতের অক্ষর' : /\d/.test(ch) ? 'সংখ্যা' : 'অক্ষর';
+        k.innerHTML = /[A-Z]/.test(ch) ? '<span class="kbd">Shift</span>+<span class="kbd">' + ch + '</span>' : '';
+      }
+    }
+  }
+
+  function press(ch) {
+    if (R.done) return;
+    if (ch === '\r') ch = '\n';
+    if (ch === '\t') return;
+    if (!R.t0) { R.t0 = performance.now(); startTick(); }
+    const expect = R.text[R.pos];
+    R.keys++;
+    const tid = R.tokAt[R.pos];
+    if (ch === expect) {
+      R.good++;
+      const prev = R.pos;
+      R.spans[prev].classList.add('done');
+      R.pos++;
+      if (expect === '\n') skipIndent();
+      paintCursor(prev);
+      if (R.pos >= R.text.length) { finish(); return; }
+    } else {
+      R.miss++;
+      const sp = R.spans[R.pos];
+      sp.classList.add('miss');
+      sp.classList.remove('wrong'); void sp.offsetWidth; sp.classList.add('wrong');
+      setTimeout(() => sp.classList.remove('wrong'), 220);
+      if (tid >= 0) { R.toks[tid].missed = true; R.confuse.push([R.toks[tid].t, ch]); }
+    }
+    updateLive();
+  }
+
+  let tick = 0;
+  function startTick() { clearInterval(tick); tick = setInterval(updateLive, 250); }
+
+  const wpmOf = (good, ms) => ms > 800 ? Math.round((good / 5) / (ms / 60000)) : 0;
+  function updateLive() {
+    const ms = R.t0 ? (R.done ? R.t1 : performance.now()) - R.t0 : 0;
+    $('sWpm').textContent = bn(wpmOf(R.good, ms));
+    const acc = R.keys ? Math.round(R.good / R.keys * 100) : 100;
+    $('sAcc').textContent = bn(acc) + '%';
+    $('accBox').classList.toggle('low', acc < 90);
+    $('sTime').textContent = fmtTime(ms);
+  }
+
+  function finish() {
+    R.done = true; R.t1 = performance.now(); clearInterval(tick);
+    R.spans.forEach(s => s.classList.remove('cur'));
+    const ms = R.t1 - R.t0;
+    const wpm = wpmOf(R.good, ms), acc = Math.round(R.good / R.keys * 100);
+
+    const st = (store.stats[S.lang] ||= {});
+    const roundMiss = {};
+    R.toks.forEach(tk => {
+      const e = (st[tk.t] ||= { seen: 0, missed: 0, conf: {} });
+      e.seen++;
+      if (tk.missed) { e.missed++; roundMiss[tk.t] = (roundMiss[tk.t] || 0) + 1; }
+    });
+    R.confuse.forEach(([t, got]) => {
+      const label = got === '\n' ? '↵' : got === ' ' ? '␣' : got;
+      st[t].conf[label] = (st[t].conf[label] || 0) + 1;
+    });
+    const prevBest = Math.max(0, ...store.hist.filter(h => h.lang === S.lang).map(h => h.wpm));
+    store.hist.push({ lang: S.lang, wpm, acc, at: Date.now() });
+    store.hist = store.hist.slice(-200);
+    save();
+    renderWeak(); renderHist(); updateLive(); showNext();
+
+    const top = Object.entries(roundMiss).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const newBest = wpm > prevBest && prevBest > 0;
+    resultEl.innerHTML = `
+      <h2>${acc >= 97 ? 'চমৎকার, প্রায় নিখুঁত!' : acc >= 90 ? 'ভালো হয়েছে।' : 'শেষ হলো। এবার একটু ধীরে, নির্ভুলভাবে।'}</h2>
+      <div class="big">
+        <div><b>${bn(wpm)}</b><small>শব্দ/মিনিট${newBest ? ' · নতুন সেরা' : ''}</small></div>
+        <div><b>${bn(acc)}%</b><small>নির্ভুলতা</small></div>
+        <div><b>${bn(R.miss)}</b><small>ভুল চাপ</small></div>
+        <div><b>${fmtTime(ms)}</b><small>সময়</small></div>
+      </div>
+      <div class="weak-now">${top.length ? 'এই রাউন্ডে আটকেছেন: ' + top.map(([t, n]) => `<span class="chip">${esc(t)}${n > 1 ? ' ×' + bn(n) : ''}</span>`).join('') : '<span class="chip ok">কোনো চিহ্নে ভুল হয়নি</span>'}</div>
+      <div class="actions">
+        <button class="btn primary" id="rNext">পরের কোড →</button>
+        <button class="btn" id="rAgain">এটাই আবার</button>
+        <button class="btn" id="rDrill">দুর্বল চিহ্ন অনুশীলন</button>
+      </div>`;
+    resultEl.hidden = false;
+    $('rNext').onclick = nextSnippet;
+    $('rAgain').onclick = restart;
+    $('rDrill').onclick = startDrill;
+    $('rNext').focus();
+  }
+
+  // ---- দুর্বল চিহ্ন ----
+  function weakRows(lang) {
+    const st = store.stats[lang] || {};
+    return Object.entries(st).filter(([, e]) => e.missed > 0)
+      .map(([t, e]) => ({ t, seen: e.seen, missed: e.missed, rate: e.missed / e.seen, conf: e.conf }))
+      .sort((a, b) => (b.rate * Math.min(b.seen, 6)) - (a.rate * Math.min(a.seen, 6)) || b.missed - a.missed);
+  }
+  function sampleRows(lang) {
+    // এই ভাষার কোডে সবচেয়ে বেশি আসা কয়েকটা বহু-অক্ষরের চিহ্ন দিয়ে নমুনা
+    const freq = {};
+    (BUILTIN[lang] || []).forEach(s => tokenize(s.text).toks.forEach(t => { freq[t.t] = (freq[t.t] || 0) + 1; }));
+    const picks = Object.entries(freq).sort((a, b) => (b[0].length > 1) - (a[0].length > 1) || b[1] - a[1]).slice(0, 5);
+    const rates = [0.42, 0.35, 0.28, 0.2, 0.12];
+    return picks.map(([t, n], i) => ({ t, seen: n, missed: Math.max(1, Math.round(n * rates[i])), rate: rates[i], conf: {} }));
+  }
+
+  function renderWeak() {
+    $('weakLang').textContent = LABEL[S.lang];
+    const hasData = Object.keys(store.stats[S.lang] || {}).length > 0;
+    let rows = hasData ? weakRows(S.lang) : sampleRows(S.lang);
+    $('sampleNote').hidden = hasData;
+    $('btnReset').hidden = !hasData;
+    $('btnDrill').disabled = !hasData || rows.length === 0;
+    const ul = $('weakList');
+    if (!rows.length) { ul.innerHTML = '<li><p class="empty" style="grid-column:1/-1">এখন পর্যন্ত কোনো চিহ্নে ভুল নেই। দারুণ!</p></li>'; return; }
+    ul.innerHTML = rows.slice(0, 7).map(r => {
+      const conf = Object.entries(r.conf || {}).sort((a, b) => b[1] - a[1])[0];
+      const confTxt = conf ? ` · প্রায়ই চাপেন <b style="font-family:var(--f-code)">${esc(conf[0])}</b>` : '';
+      return `<li>
+        <span class="tok" title="${esc(NAMES[r.t] || r.t)}">${esc(r.t)}</span>
+        <span class="bar"><i style="width:${Math.max(4, Math.round(r.rate * 100))}%"></i></span>
+        <span class="pct">${bn(Math.round(r.rate * 100))}%</span>
+        <span class="meta">${esc(NAMES[r.t] || '')} · ${bn(r.seen)} বারে ${bn(r.missed)} বার ভুল${confTxt}</span>
+      </li>`;
+    }).join('');
+  }
+
+  function renderHist() {
+    const h = store.hist.filter(x => x.lang === S.lang).slice(-14);
+    const box = $('histBox');
+    if (!h.length) { box.innerHTML = `<p class="empty">${LABEL[S.lang]}-এ এখনো কোনো রাউন্ড শেষ হয়নি। প্রতিটা রাউন্ডের গতি এখানে কলাম হয়ে জমবে।</p>`; return; }
+    const max = Math.max(...h.map(x => x.wpm), 10);
+    const avg = Math.round(h.reduce((s, x) => s + x.wpm, 0) / h.length);
+    box.innerHTML = `<div class="hist">${h.map(x => `<i style="height:${Math.round(x.wpm / max * 100)}%" title="${bn(x.wpm)} শব্দ/মিনিট, ${bn(x.acc)}%"></i>`).join('')}</div>
+      <div class="hist-cap"><span>শেষ ${bn(h.length)} রাউন্ড</span><span>গড় ${bn(avg)} · সেরা ${bn(Math.max(...h.map(x => x.wpm)))}</span></div>`;
+  }
+
+  // ---- কোড বাছাই ----
+  function renderPicker() {
+    const list = listFor(S.lang);
+    const nb = (BUILTIN[S.lang] || []).length;
+    const sel = $('snipSel');
+    const opt = (s, i) => `<option value="${i}">${bn(i < nb ? i + 1 : i - nb + 1)}. ${esc(s.file)}</option>`;
+    let html = `<optgroup label="তৈরি করা কোড (${bn(nb)})">${list.slice(0, nb).map(opt).join('')}</optgroup>`;
+    if (list.length > nb) html += `<optgroup label="আমার কোড (${bn(list.length - nb)})">${list.slice(nb).map((s, j) => opt(s, nb + j)).join('')}</optgroup>`;
+    if (S.drill) html = `<option value="drill">দুর্বল চিহ্ন অনুশীলন</option>` + html;
+    sel.innerHTML = html;
+    sel.value = S.drill ? 'drill' : String(S.idx);
+  }
+
+  function loadSnippet() {
+    const list = listFor(S.lang);
+    if (S.idx >= list.length) S.idx = 0;
+    const sn = list[S.idx];
+    S.drill = false;
+    renderPicker();
+    buildRound(sn.text, sn.file, (sn.mine ? 'আমার কোড · ' : '') + bn(S.idx + 1) + ' / ' + bn(list.length));
+    renderMine();
+  }
+  function nextSnippet() { S.idx = (S.idx + 1) % listFor(S.lang).length; loadSnippet(); focusTyper(); }
+  function randSnippet() {
+    const n = listFor(S.lang).length;
+    if (n > 1) { let j; do { j = Math.floor(Math.random() * n); } while (j === S.idx); S.idx = j; }
+    loadSnippet(); focusTyper();
+  }
+  function restart() {
+    if (S.drill) buildRound(R.text, R.file, R.tag); else loadSnippet();
+    focusTyper();
+  }
+  function startDrill() {
+    const weak = weakRows(S.lang).slice(0, 4).map(r => r.t);
+    if (!weak.length) return;
+    const lines = [];
+    listFor(S.lang).forEach(sn => sn.text.split('\n').forEach(l => {
+      const t = l.trim();
+      if (t.length > 2 && weak.some(w => t.includes(w)) && !lines.includes(t)) lines.push(t);
+    }));
+    for (let i = lines.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [lines[i], lines[j]] = [lines[j], lines[i]]; }
+    const pick = lines.slice(0, 6);
+    if (!pick.length) return;
+    S.drill = true;
+    renderPicker();
+    buildRound(pick.join('\n'), 'drill.' + EXT[S.lang], 'চিহ্ন: ' + weak.join('  '));
+    focusTyper();
+  }
+  function setLang(lang, idx = 0) {
+    S.lang = lang; S.idx = idx;
+    document.querySelectorAll('#langbar button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+    $('addLang').value = lang;
+    loadSnippet(); renderWeak(); renderHist();
+  }
+
+  function renderLangbar() {
+    $('langbar').innerHTML = LANGS.map(([k, name]) => {
+      const n = MINE.filter(m => m.lang === k).length;
+      return `<button type="button" data-lang="${k}" aria-pressed="${k === S.lang}">${esc(name)}${n ? ` <small>+${bn(n)}</small>` : ''}</button>`;
+    }).join('');
+    document.querySelectorAll('#langbar button').forEach(b => b.addEventListener('click', () => { setLang(b.dataset.lang); focusTyper(); }));
+  }
+
+  // ---- আমার কোড: তালিকা, যোগ, মোছা ----
+  function renderMine() {
+    const nb = (BUILTIN[S.lang] || []).length;
+    const mine = listFor(S.lang).slice(nb);
+    $('mineTitle').textContent = LABEL[S.lang] + '-এ আমার কোড';
+    $('mineCount').textContent = `সব ভাষায় মোট ${bn(MINE.length)}টা`;
+    const ul = $('mineList');
+    if (!mine.length) {
+      ul.innerHTML = `<li><p class="empty" style="grid-column:1/-1">${esc(LABEL[S.lang])}-এ এখনো নিজের কোড নেই। বাঁয়ের ঘরে পেস্ট করে "যোগ করুন" চাপলে এখানে আসবে।</p></li>`;
+      return;
+    }
+    ul.innerHTML = mine.map((s, j) => {
+      const i = nb + j;
+      const first = s.text.split('\n').find(l => l.trim()) || '';
+      const nLines = s.text.split('\n').length;
+      return `<li class="${!S.drill && i === S.idx ? 'on' : ''}">
+        <span class="nm" title="${esc(s.file)}">${esc(s.file)}</span>
+        <span class="acts">
+          <button class="btn small" data-play="${i}">টাইপ করুন</button>
+          <button class="btn small" data-del="${esc(s.id)}">মুছুন</button>
+        </span>
+        <span class="pv">${bn(nLines)} লাইন · ${esc(first.trim())}</span>
+      </li>`;
+    }).join('');
+    ul.querySelectorAll('[data-play]').forEach(b => b.addEventListener('click', () => {
+      S.idx = +b.dataset.play; loadSnippet();
+      $('codebox').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+      focusTyper();
+    }));
+    ul.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+      if (!b.dataset.armed) {
+        b.dataset.armed = '1'; b.textContent = 'নিশ্চিত?';
+        setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = 'মুছুন'; } }, 3000);
+        return;
+      }
+      deleteMine(b.dataset.del);
+    }));
+  }
+
+  function normalize(src) {
+    return src.replace(/\r\n?/g, '\n').replace(/\t/g, '    ')
+      .replace(/[   ]/g, ' ')
+      .replace(/[‘’]/g, "'").replace(/[“”]/g, '"')
+      .split('\n').map(l => l.replace(/\s+$/, '')).join('\n')
+      .replace(/^\n+|\n+$/g, '');
+  }
+
+  function guessName(text, lang, n) {
+    const m = text.match(/(?:class|interface|struct|enum|object|record|trait|function|func|fun|fn|def)\s+([A-Za-z_][A-Za-z0-9_]*)/);
+    if (m) return m[1] + '.' + EXT[lang];
+    const t = text.match(/^\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|WITH)\b/i);
+    if (t) return t[1].toLowerCase() + '-' + n + '.sql';
+    return 'snippet-' + n + '.' + EXT[lang];
+  }
+
+  async function addMine(e) {
+    e.preventDefault();
+    const msg = $('addMsg');
+    const lang = $('addLang').value;
+    const raw = $('addText').value;
+    const baseName = $('addName').value.trim();
+    const pieces = raw.split(/^\s*---\s*$/m).map(normalize).filter(p => p.trim().length > 0);
+    msg.className = 'msg';
+    if (!pieces.length) { msg.className = 'msg bad'; msg.textContent = 'কোডের ঘর ফাঁকা। আগে কিছু কোড পেস্ট করুন।'; $('addText').focus(); return; }
+    const tooLong = pieces.findIndex(p => p.split('\n').length > 40);
+    if (tooLong >= 0) { msg.className = 'msg bad'; msg.textContent = `${bn(tooLong + 1)} নম্বর কোডটা ৪০ লাইনের বেশি। ছোট ছোট অংশে ভাগ করে মাঝে --- দিন।`; return; }
+
+    const already = MINE.filter(m => m.lang === lang).length;
+    const now = Date.now();
+    const items = pieces.map((text, i) => ({
+      lang, text: text.slice(0, 6000), at: now + i,
+      name: baseName ? (pieces.length > 1 ? `${baseName} (${i + 1})` : baseName) : guessName(text, lang, already + i + 1)
+    }));
+    $('addBtn').disabled = true;
+    try {
+      if (mineCol) {
+        await Promise.all(items.map(async it => {
+          const ref = mineCol.doc();
+          await ref.set(it);
+          if (!MINE.some(m => m.id === ref.id)) MINE.push({ id: ref.id, ...it });
+        }));
+        afterMineChange();
+      } else {
+        items.forEach((it, i) => MINE.push({ id: 'local-' + now + '-' + i, ...it }));
+        var memOnly = !saveLocalMine();
+        afterMineChange();
+      }
+      msg.className = 'msg ok';
+      msg.textContent = `${bn(items.length)}টা কোড ${LABEL[lang]}-এ যোগ হয়েছে।` + (memOnly ? ' এই ব্রাউজারে সংরক্ষণ বন্ধ, তাই পেজ বন্ধ করলে এগুলো থাকবে না।' : '');
+      $('addText').value = ''; $('addName').value = '';
+      if (lang !== S.lang) setLang(lang, (BUILTIN[lang] || []).length + already);
+      else { S.idx = (BUILTIN[lang] || []).length + already; loadSnippet(); }
+    } catch (err) {
+      msg.className = 'msg bad';
+      msg.textContent = err && err.code === 'quota_exceeded'
+        ? 'জায়গা শেষ। পুরোনো কিছু কোড মুছে আবার চেষ্টা করুন।'
+        : 'সংরক্ষণ হলো না। একটু পরে আবার চেষ্টা করুন।';
+    } finally {
+      $('addBtn').disabled = false;
+    }
+  }
+
+  async function deleteMine(id) {
+    const cur = listFor(S.lang)[S.idx];
+    try {
+      if (mineCol) await mineCol.doc(id).delete();
+      MINE = MINE.filter(m => m.id !== id);
+      if (!mineCol) saveLocalMine();
+      afterMineChange();
+      if (cur && cur.id === id) { S.idx = 0; loadSnippet(); }
+    } catch (e) {
+      $('addMsg').className = 'msg bad'; $('addMsg').textContent = 'মোছা গেল না। আবার চেষ্টা করুন।';
+    }
+  }
+
+  function afterMineChange() {
+    renderLangbar();
+    // চলমান রাউন্ড না ভেঙে শুধু তালিকা নতুন করে আঁকা
+    if (R && !S.drill) {
+      const j = listFor(S.lang).findIndex(s => s.text === R.text);
+      if (j >= 0) S.idx = j;
+    }
+    renderPicker();
+    renderMine();
+  }
+
+  async function connectStore() {
+    const note = $('storeNote');
+    const localOnly = () => { note.textContent = 'নিজের কোড শুধু এই ব্রাউজারে জমা থাকে। ব্রাউজারের ডেটা মুছলে এগুলোও মুছে যাবে।'; };
+    try {
+      const use = window.claude?.use;
+      if (!use) { localOnly(); return; }
+      const [user, db] = await Promise.all([use('user'), use('db')]);
+      const uid = user ? await user.id() : null;
+      if (!db || !uid) { localOnly(); return; }
+      const col = db.doc('data/users/' + uid + '/lib').collection('snips');
+      let first = true;
+      const timer = setTimeout(() => { if (first) localOnly(); }, 10000);
+      col.onSnapshot(snap => {
+        clearTimeout(timer);
+        const remote = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+          .filter(m => m.lang && typeof m.text === 'string');
+        if (first) {
+          first = false;
+          mineCol = col;
+          // আগে এই ব্রাউজারে রাখা কোড থাকলে অ্যাকাউন্টে তুলে দেওয়া
+          const local = loadLocalMine().filter(l => !remote.some(r => r.text === l.text && r.lang === l.lang));
+          local.forEach(({ id, ...rest }) => col.add(rest).catch(() => {}));
+          try { localStorage.removeItem(MINE_KEY); } catch (e) {}
+          note.textContent = 'নিজের কোড আপনার অ্যাকাউন্টে জমা থাকে, শুধু আপনি দেখতে পান। অন্য ডিভাইস থেকে খুললেও পাবেন।';
+        }
+        MINE = remote;
+        afterMineChange();
+      }, () => { clearTimeout(timer); mineCol = null; localOnly(); });
+    } catch (e) { localOnly(); }
+  }
+
+  // ---- ফোকাস আর কীবোর্ড ----
+  function focusTyper() {
+    if (!resultEl.hidden) return;
+    typer.focus({ preventScroll: true });
+    hint.hidden = document.activeElement === typer;
+  }
+
+  typer.addEventListener('focus', () => { hint.hidden = true; });
+  typer.addEventListener('blur', () => { setTimeout(() => { if (document.activeElement !== typer && resultEl.hidden) hint.hidden = false; }, 0); });
+  $('codebox').addEventListener('mousedown', e => { e.preventDefault(); focusTyper(); });
+  $('codebox').addEventListener('touchend', () => focusTyper());
+
+  typer.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); restart(); return; }
+    if (e.key === 'Tab') { e.preventDefault(); return; }
+    if (e.key === 'Enter') { e.preventDefault(); press('\n'); return; }
+  });
+  typer.addEventListener('input', () => {
+    const v = typer.value; typer.value = '';
+    for (const ch of v) press(ch);
+  });
+
+  $('snipSel').addEventListener('change', e => {
+    if (e.target.value === 'drill') return;
+    S.idx = +e.target.value; loadSnippet(); focusTyper();
+  });
+  $('btnNext').addEventListener('click', nextSnippet);
+  $('btnRand').addEventListener('click', randSnippet);
+  $('btnDrill').addEventListener('click', startDrill);
+  $('btnAdd').addEventListener('click', () => {
+    $('addLang').value = S.lang;
+    $('lib').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    setTimeout(() => $('addText').focus({ preventScroll: true }), 350);
+  });
+  $('addForm').addEventListener('submit', addMine);
+  $('addText').addEventListener('keydown', e => {
+    // কোডের ঘরে Tab চাপলে ৪টা স্পেস বসবে, ফোকাস সরবে না
+    if (e.key === 'Tab' && !e.shiftKey) {
+      e.preventDefault();
+      const t = e.target, s = t.selectionStart;
+      t.setRangeText('    ', s, t.selectionEnd, 'end');
+    }
+  });
+  $('btnReset').addEventListener('click', function () {
+    if (this.dataset.armed) { delete store.stats[S.lang]; save(); renderWeak(); this.textContent = 'মুছুন'; delete this.dataset.armed; return; }
+    this.dataset.armed = '1'; this.textContent = 'নিশ্চিত? আবার চাপুন';
+    setTimeout(() => { delete this.dataset.armed; this.textContent = 'মুছুন'; }, 3000);
+  });
+  document.addEventListener('keydown', e => {
+    if (resultEl.hidden) return;
+    if (e.key === 'Enter' && document.activeElement?.tagName !== 'BUTTON') nextSnippet();
+    if (e.key === 'Escape') restart();
+  });
+
+  $('addLang').innerHTML = LANGS.map(([k, name]) => `<option value="${k}">${esc(name)}</option>`).join('');
+  renderLangbar();
+  setLang('php');
+  hint.hidden = document.activeElement === typer;
+  connectStore();
+})();
+</script>
